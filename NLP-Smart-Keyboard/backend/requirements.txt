@@ -4,6 +4,7 @@ pydantic==2.6.1
 pydantic-settings==2.1.0
 SQLAlchemy==2.0.25
 nltk==3.8.1
+langdetect==1.0.9
 spacy==3.7.2
 scikit-learn==1.4.0
 sentence-transformers==2.3.1
