@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">NeuroKey NLP</string>
+    <string name="ime_name">NeuroKey Smart Keyboard</string>
+    <string name="subtype_en_US">English (US)</string>
+    <string name="subtype_hi_IN">Hindi (India)</string>
+    <string name="number_symbol_key">123</string>
+</resources>
