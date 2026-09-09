@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: neurokey-backend
+    runtime: python
+    rootDir: NLP-Smart-Keyboard/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
