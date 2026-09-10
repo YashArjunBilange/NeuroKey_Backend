@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -69,11 +70,39 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     }
 
     private fun bindButtons(view: View) {
-        if (view is Button && view.id !in setOf(R.id.suggestion_1, R.id.suggestion_2, R.id.suggestion_3)) {
-            view.setOnClickListener(this)
-            view.setOnLongClickListener { handleLongPress(view) }
+        if (view is Button) {
+            attachPressAnimation(view)
+            if (view.id !in setOf(R.id.suggestion_1, R.id.suggestion_2, R.id.suggestion_3)) {
+                view.setOnClickListener(this)
+                view.setOnLongClickListener { handleLongPress(view) }
+            }
         } else if (view is android.view.ViewGroup) {
             for (index in 0 until view.childCount) bindButtons(view.getChildAt(index))
+        }
+    }
+
+    private fun attachPressAnimation(button: Button) {
+        button.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    view.animate()
+                        .scaleX(0.92f)
+                        .scaleY(0.92f)
+                        .alpha(0.84f)
+                        .setDuration(65L)
+                        .start()
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .alpha(1f)
+                        .setDuration(115L)
+                        .start()
+                }
+            }
+            false
         }
     }
 
