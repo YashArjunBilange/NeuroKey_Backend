@@ -39,6 +39,18 @@ class SettingsActivity : Activity() {
             setText(preferences.getString(ApiClient.THEME_KEY, "ocean"))
         }
         root.addView(themeInput)
+        val displayModeInput = EditText(this).apply {
+            hint = "Display: auto, day, or night"
+            setSingleLine(true)
+            setText(preferences.getString(ApiClient.DISPLAY_MODE_KEY, "auto"))
+        }
+        root.addView(displayModeInput)
+        val sizeInput = EditText(this).apply {
+            hint = "Keyboard size: compact, standard, or large"
+            setSingleLine(true)
+            setText(preferences.getString(ApiClient.KEYBOARD_SIZE_KEY, "standard"))
+        }
+        root.addView(sizeInput)
         root.addView(Button(this).apply {
             text = "Allow voice input"
             setOnClickListener {
@@ -60,6 +72,17 @@ class SettingsActivity : Activity() {
             setOnClickListener {
                 val theme = themeInput.text.toString().trim().lowercase()
                 preferences.edit().putString(ApiClient.THEME_KEY, theme.ifBlank { "ocean" }).apply()
+            }
+        })
+        root.addView(Button(this).apply {
+            text = "Save display and size"
+            setOnClickListener {
+                val mode = displayModeInput.text.toString().trim().lowercase()
+                val size = sizeInput.text.toString().trim().lowercase()
+                preferences.edit()
+                    .putString(ApiClient.DISPLAY_MODE_KEY, mode.ifBlank { "auto" })
+                    .putString(ApiClient.KEYBOARD_SIZE_KEY, size.ifBlank { "standard" })
+                    .apply()
             }
         })
         val status = TextView(this).apply {

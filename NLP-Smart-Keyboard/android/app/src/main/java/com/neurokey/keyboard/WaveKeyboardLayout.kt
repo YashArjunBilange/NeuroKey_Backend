@@ -51,10 +51,14 @@ class WaveKeyboardLayout @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         val theme = context.getSharedPreferences("neurokey_preferences", Context.MODE_PRIVATE)
             .getString("keyboard_theme", "ocean")
-        val colors = when (theme) {
-            "sunset" -> intArrayOf(Color.rgb(48, 12, 62), Color.rgb(145, 42, 78), Color.rgb(240, 119, 70))
-            "forest" -> intArrayOf(Color.rgb(4, 35, 29), Color.rgb(12, 91, 69), Color.rgb(77, 157, 89))
-            else -> intArrayOf(Color.rgb(4, 17, 39), Color.rgb(11, 58, 91), Color.rgb(10, 126, 153))
+        val mode = context.getSharedPreferences("neurokey_preferences", Context.MODE_PRIVATE)
+            .getString("display_mode", "auto")
+        val night = mode == "night" || (mode == "auto" && (resources.configuration.uiMode and 0x30) == 0x20)
+        val colors = when {
+            night -> intArrayOf(Color.rgb(4, 8, 20), Color.rgb(13, 25, 48), Color.rgb(25, 42, 74))
+            theme == "sunset" -> intArrayOf(Color.rgb(48, 12, 62), Color.rgb(145, 42, 78), Color.rgb(240, 119, 70))
+            theme == "forest" -> intArrayOf(Color.rgb(4, 35, 29), Color.rgb(12, 91, 69), Color.rgb(77, 157, 89))
+            else -> intArrayOf(Color.rgb(218, 247, 255), Color.rgb(125, 213, 226), Color.rgb(28, 139, 157))
         }
         paint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), colors, null, Shader.TileMode.CLAMP)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)

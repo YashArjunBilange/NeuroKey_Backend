@@ -33,6 +33,8 @@ object ApiClient {
     const val PREFERENCES_NAME = "neurokey_preferences"
     const val BACKEND_URL_KEY = "backend_url"
     const val THEME_KEY = "keyboard_theme"
+    const val DISPLAY_MODE_KEY = "display_mode"
+    const val KEYBOARD_SIZE_KEY = "keyboard_size"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)

@@ -58,6 +58,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         suggestion3.setOnClickListener { insertSuggestion(suggestion3.text.toString()) }
         bindButtons(keyboardView)
         applyTheme()
+        applyKeyboardSize()
         return keyboardView
     }
 
@@ -135,10 +136,15 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         val theme = getSharedPreferences(ApiClient.PREFERENCES_NAME, MODE_PRIVATE)
             .getString(ApiClient.THEME_KEY, "ocean")
             .orEmpty()
-        val colors = when (theme) {
-            "sunset" -> intArrayOf(Color.rgb(68, 20, 75), Color.rgb(190, 65, 68), Color.rgb(245, 145, 80))
-            "forest" -> intArrayOf(Color.rgb(7, 45, 34), Color.rgb(18, 103, 72), Color.rgb(75, 160, 95))
-            else -> intArrayOf(Color.rgb(7, 21, 43), Color.rgb(16, 42, 76), Color.rgb(20, 125, 150))
+        val mode = getSharedPreferences(ApiClient.PREFERENCES_NAME, MODE_PRIVATE)
+            .getString(ApiClient.DISPLAY_MODE_KEY, "auto")
+            .orEmpty()
+        val night = mode == "night" || (mode == "auto" && (resources.configuration.uiMode and 0x30) == 0x20)
+        val colors = when {
+            night -> intArrayOf(Color.rgb(4, 8, 20), Color.rgb(13, 25, 48), Color.rgb(25, 42, 74))
+            theme == "sunset" -> intArrayOf(Color.rgb(68, 20, 75), Color.rgb(190, 65, 68), Color.rgb(245, 145, 80))
+            theme == "forest" -> intArrayOf(Color.rgb(7, 45, 34), Color.rgb(18, 103, 72), Color.rgb(75, 160, 95))
+            else -> intArrayOf(Color.rgb(232, 248, 255), Color.rgb(177, 231, 241), Color.rgb(72, 178, 194))
         }
         keyboardView.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply {
             cornerRadius = 12f
@@ -151,6 +157,22 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         collect(keyboardView)
         buttons.filter { it.id !in setOf(R.id.suggestion_1, R.id.suggestion_2, R.id.suggestion_3) }
             .forEach { it.setTextColor(Color.WHITE) }
+    }
+
+    private fun applyKeyboardSize() {
+        val size = getSharedPreferences(ApiClient.PREFERENCES_NAME, MODE_PRIVATE)
+            .getString(ApiClient.KEYBOARD_SIZE_KEY, "standard")
+            .orEmpty()
+        val factor = when (size) {
+            "compact" -> 0.86f
+            "large" -> 1.12f
+            else -> 1f
+        }
+        keyboardView.post {
+            keyboardView.pivotY = keyboardView.height.toFloat()
+            keyboardView.scaleX = factor
+            keyboardView.scaleY = factor
+        }
     }
 
     private fun shouldAutoCapitalize(): Boolean {
