@@ -16,6 +16,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.HorizontalScrollView
 import android.widget.TextView
 import com.neurokey.keyboard.api.ApiClient
 import com.neurokey.keyboard.api.PredictSentenceRequest
@@ -41,6 +42,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private var requestJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var speechRecognizer: SpeechRecognizer? = null
+    private val recentEmojis = EmojiCatalog.categories["Recent"]?.toMutableList() ?: mutableListOf()
     private val alternates = mapOf(
         "A" to "áàäâãå", "C" to "ç", "E" to "éèëê", "I" to "íìïî",
         "N" to "ñ", "O" to "óòöôõ", "S" to "ß", "U" to "úùüû",
@@ -64,6 +66,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         suggestion2.setOnClickListener { insertSuggestion(suggestion2.text.toString()) }
         suggestion3.setOnClickListener { insertSuggestion(suggestion3.text.toString()) }
         bindButtons(keyboardView)
+        setupEmojiPanel()
         applyTheme()
         applyKeyboardSize()
         return keyboardView
@@ -321,7 +324,67 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private fun toggleEmojiPanel() {
         val panel = keyboardView.findViewById<View>(R.id.emoji_row)
         panel.visibility = if (panel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        if (panel.visibility == View.VISIBLE) showEmojiSuggestions()
+        if (panel.visibility == View.VISIBLE) {
+            populateEmojiCategory("Recent")
+            showEmojiSuggestions()
+        }
+    }
+
+    private fun setupEmojiPanel() {
+        val content = keyboardView.findViewById<LinearLayout>(R.id.emoji_content)
+        val categoryScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+        val categories = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        EmojiCatalog.categories.keys.forEach { category ->
+            val button = Button(this).apply {
+                text = category
+                textSize = 11f
+                isAllCaps = false
+                setOnClickListener { populateEmojiCategory(category) }
+                layoutParams = LinearLayout.LayoutParams(90, 42)
+                attachPressAnimation(this)
+            }
+            categories.addView(button)
+        }
+        categoryScroll.addView(categories)
+        content.addView(categoryScroll)
+        populateEmojiCategory("Recent")
+    }
+
+    private fun populateEmojiCategory(category: String) {
+        val content = keyboardView.findViewById<LinearLayout>(R.id.emoji_content)
+        val grid = if (content.childCount > 1) content.getChildAt(1) as LinearLayout else LinearLayout(this).also {
+            it.orientation = LinearLayout.VERTICAL
+            content.addView(it)
+        }
+        grid.removeAllViews()
+        val emojis = if (category == "Recent") recentEmojis else EmojiCatalog.categories[category].orEmpty()
+        emojis.chunked(8).forEach { rowEmojis ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            rowEmojis.forEach { emoji ->
+                val button = Button(this).apply {
+                    text = emoji
+                    textSize = 24f
+                    setPadding(0, 0, 0, 0)
+                    background = null
+                    layoutParams = LinearLayout.LayoutParams(0, 44).apply { weight = 1f }
+                    setOnClickListener { insertEmoji(emoji) }
+                    attachPressAnimation(this)
+                }
+                row.addView(button)
+            }
+            grid.addView(row)
+        }
+    }
+
+    private fun insertEmoji(emoji: String) {
+        if (sensitiveField) return
+        currentInputConnection?.commitText(emoji, 1)
+        recentEmojis.remove(emoji)
+        recentEmojis.add(0, emoji)
+        while (recentEmojis.size > 32) recentEmojis.removeLast()
+        fetchSuggestions()
     }
 
     private fun startVoiceInput() {
