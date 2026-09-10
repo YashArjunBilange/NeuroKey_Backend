@@ -58,3 +58,14 @@ def test_next_sentence_api():
     predictions = response.json()["predictions"]
     assert len(predictions) == 3
     assert all(prediction["sentence"] for prediction in predictions)
+
+def test_incomplete_word_completion_api():
+    response = client.post(
+        "/api/v1/predict/next-word",
+        json={"text": "I am go", "top_k": 3}
+    )
+    assert response.status_code == 200
+    predictions = response.json()["predictions"]
+    assert predictions
+    assert predictions[0]["word"] == "going"
+    assert predictions[0]["model"] == "completion"

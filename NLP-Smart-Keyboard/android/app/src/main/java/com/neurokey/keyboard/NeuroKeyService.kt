@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.HorizontalScrollView
 import android.widget.TextView
+import android.widget.ProgressBar
 import com.neurokey.keyboard.api.ApiClient
 import com.neurokey.keyboard.api.PredictSentenceRequest
 import com.neurokey.keyboard.api.PredictWordRequest
@@ -37,10 +38,13 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private lateinit var suggestion3: Button
     private lateinit var shiftButton: Button
     private lateinit var modeButton: Button
+    private lateinit var currentWordPreview: TextView
+    private lateinit var suggestionLoading: ProgressBar
     private var sensitiveField = false
     private var shiftMode = ShiftMode.LOWERCASE
     private var symbols = false
     private var voiceLanguage = "en-IN"
+    private var completionMode = false
     private var requestJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var speechRecognizer: SpeechRecognizer? = null
@@ -64,6 +68,8 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         suggestion3 = keyboardView.findViewById(R.id.suggestion_3)
         shiftButton = keyboardView.findViewById(R.id.btn_shift)
         modeButton = keyboardView.findViewById(R.id.btn_mode)
+        currentWordPreview = keyboardView.findViewById(R.id.current_word_preview)
+        suggestionLoading = keyboardView.findViewById(R.id.suggestion_loading)
         suggestion1.setOnClickListener { insertSuggestion(suggestion1.text.toString()) }
         suggestion2.setOnClickListener { insertSuggestion(suggestion2.text.toString()) }
         suggestion3.setOnClickListener { insertSuggestion(suggestion3.text.toString()) }
@@ -274,8 +280,15 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private fun insertSuggestion(value: String) {
         if (value.isBlank() || value == "Secured field" || value == "Offline") return
         val connection = currentInputConnection ?: return
-        val before = connection.getTextBeforeCursor(1, 0)?.toString().orEmpty()
-        connection.commitText(if (before.isNotEmpty() && !before.endsWith(" ")) " $value " else "$value ", 1)
+        val beforeText = connection.getTextBeforeCursor(120, 0)?.toString().orEmpty()
+        val before = beforeText.takeLast(1)
+        if (completionMode && value.matches(Regex("[\\p{L}\\p{N}']+")) && before.isNotEmpty() && !before.first().isWhitespace()) {
+            val partial = beforeText.takeLastWhile { !it.isWhitespace() }
+            connection.deleteSurroundingText(partial.length, 0)
+            connection.commitText("$value ", 1)
+        } else {
+            connection.commitText(if (before.isNotEmpty() && !before.first().isWhitespace()) " $value " else "$value ", 1)
+        }
         fetchSuggestions()
     }
 
@@ -285,13 +298,17 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         requestJob = serviceScope.launch {
             delay(250)
             val text = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString().orEmpty()
-            if (text.isBlank()) { clearSuggestions(); return@launch }
+            if (text.isBlank()) { completionMode = false; setLoading(false); updateWordPreview(""); clearSuggestions(); return@launch }
+            completionMode = true
+            updateWordPreview(text)
+            setLoading(true)
             setSuggestions(listOf("…"))
             try {
                 val response = ApiClient.apiService(this@NeuroKeyService).getNextWord(PredictWordRequest(text, 3))
                 val words = response.predictions.map { it.word }.filter { it.isNotBlank() }
                 if (words.isEmpty()) showOfflineSuggestions(text) else setSuggestions(words)
             } catch (_: Exception) { showOfflineSuggestions(text) }
+            finally { setLoading(false) }
         }
     }
 
@@ -302,11 +319,13 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         }
         val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
         if (sensitiveField) return
+        completionMode = false
         if (text.isBlank()) {
             setSuggestions(listOf("Type a message first"))
             return
         }
         requestJob?.cancel()
+        setLoading(false)
         setSuggestions(listOf("AI…"))
         serviceScope.launch {
             try {
@@ -323,6 +342,8 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
 
     private fun showEmojiSuggestions() {
         if (sensitiveField) return
+        completionMode = false
+        setLoading(false)
         val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
         serviceScope.launch {
             try {
@@ -337,6 +358,8 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             setSuggestions(listOf("AI off"))
             return
         }
+        completionMode = false
+        setLoading(false)
         val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
         setSuggestions(listOf("GIF…"))
         serviceScope.launch {
@@ -485,7 +508,19 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         }
     }
 
-    private fun clearSuggestions(message: String = "") = setSuggestions(listOf(message))
+    private fun setLoading(loading: Boolean) {
+        suggestionLoading.visibility = if (loading) View.VISIBLE else View.GONE
+    }
+
+    private fun updateWordPreview(text: String) {
+        val word = text.trimEnd().takeLastWhile { !it.isWhitespace() }
+        currentWordPreview.text = if (word.isBlank()) "" else "$word →"
+    }
+
+    private fun clearSuggestions(message: String = "") {
+        setLoading(false)
+        setSuggestions(listOf(message))
+    }
 
     override fun onDestroy() {
         requestJob?.cancel()

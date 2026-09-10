@@ -25,6 +25,21 @@ def predict_next_words(text: str, top_k: int = 3):
     predictions = []
     vocab = [word for word in ngram_engine.unigrams if word not in {".", ",", "?", "!"}]
 
+    if not text[-1].isspace():
+        partial = tokens[-1]
+        completions = [word for word in vocab if word.startswith(partial) and word != partial]
+        if completions:
+            return {
+                "predictions": [
+                    {
+                        "word": word,
+                        "probability": ngram_engine.get_unigram_prob(word),
+                        "model": "completion"
+                    }
+                    for word in sorted(completions, key=lambda item: (-ngram_engine.unigrams[item], item))[:top_k]
+                ]
+            }
+
     if len(tokens) >= 2:
         w1, w2 = tokens[-2], tokens[-1]
         trigram_candidates = [
