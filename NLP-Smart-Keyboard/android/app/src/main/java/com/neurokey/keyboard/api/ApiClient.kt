@@ -11,10 +11,21 @@ import java.util.concurrent.TimeUnit
 data class PredictWordRequest(val text: String, val top_k: Int = 3)
 data class PredictWordResponse(val predictions: List<Prediction>)
 data class Prediction(val word: String, val probability: Double, val model: String)
+data class PredictSentenceRequest(val context: String, val top_k: Int = 3)
+data class PredictSentenceResponse(val predictions: List<SentencePrediction>)
+data class SentencePrediction(val sentence: String, val score: Double = 0.0)
+data class TextRequest(val text: String)
+data class EmojiResponse(val emojis: List<String>)
 
 interface NlpApiService {
     @POST("/api/v1/predict/next-word")
     suspend fun getNextWord(@Body request: PredictWordRequest): PredictWordResponse
+
+    @POST("/api/v1/predict/next-sentence")
+    suspend fun getNextSentence(@Body request: PredictSentenceRequest): PredictSentenceResponse
+
+    @POST("/api/v1/nlp/emoji")
+    suspend fun getEmojis(@Body request: TextRequest): EmojiResponse
 }
 
 object ApiClient {

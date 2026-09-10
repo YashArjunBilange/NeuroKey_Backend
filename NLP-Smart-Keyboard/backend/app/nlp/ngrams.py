@@ -16,6 +16,7 @@ class NGramModel:
         self.unigrams.clear()
         self.bigrams.clear()
         self.trigrams.clear()
+        self.total_words = 0
         
         for text in corpus:
             tokens = tokenize_text(text)["tokens"]
