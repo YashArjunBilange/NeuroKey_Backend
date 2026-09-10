@@ -5,8 +5,8 @@ export default function Dashboard() {
   const stats = [
     { name: 'NLP Modules Loaded', value: '25', icon: <Brain className="text-blue-500" /> },
     { name: 'Supported Languages', value: '3', icon: <MessageSquare className="text-green-500" /> },
-    { name: 'Dataset Articles', value: '200k+', icon: <Database className="text-purple-500" /> },
-    { name: 'API Latency', value: '~45ms', icon: <Zap className="text-yellow-500" /> },
+    { name: 'Dataset Articles', value: 'Bring your dataset', icon: <Database className="text-purple-500" /> },
+    { name: 'Backend status', value: 'On demand', icon: <Zap className="text-yellow-500" /> },
   ];
 
   return (

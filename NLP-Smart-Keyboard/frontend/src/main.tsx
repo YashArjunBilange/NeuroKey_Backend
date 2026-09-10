@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import KeyboardDemo from './pages/KeyboardDemo';
 import Analyzer from './pages/Analyzer';
+import DatasetScraper from './pages/DatasetScraper';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -15,7 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route index element={<Dashboard />} />
           <Route path="demo" element={<KeyboardDemo />} />
           <Route path="analyzer" element={<Analyzer />} />
-          <Route path="data" element={<div className="p-8"><h2>Dataset & Scraper (To Be Implemented)</h2></div>} />
+          <Route path="data" element={<DatasetScraper />} />
         </Route>
       </Routes>
     </BrowserRouter>
