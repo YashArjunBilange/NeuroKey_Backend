@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.graphics.Color
 import android.view.Gravity
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -51,6 +52,11 @@ class SettingsActivity : Activity() {
             setText(preferences.getString(ApiClient.KEYBOARD_SIZE_KEY, "standard"))
         }
         root.addView(sizeInput)
+        val aiToggle = CheckBox(this).apply {
+            text = "Enable AI suggestions"
+            isChecked = preferences.getBoolean(ApiClient.AI_ENABLED_KEY, true)
+        }
+        root.addView(aiToggle)
         root.addView(Button(this).apply {
             text = "Allow voice input"
             setOnClickListener {
@@ -82,7 +88,20 @@ class SettingsActivity : Activity() {
                 preferences.edit()
                     .putString(ApiClient.DISPLAY_MODE_KEY, mode.ifBlank { "auto" })
                     .putString(ApiClient.KEYBOARD_SIZE_KEY, size.ifBlank { "standard" })
+                    .putBoolean(ApiClient.AI_ENABLED_KEY, aiToggle.isChecked)
                     .apply()
+            }
+        })
+        root.addView(Button(this).apply {
+            text = "Toggle day / night mode"
+            setOnClickListener {
+                val next = when (preferences.getString(ApiClient.DISPLAY_MODE_KEY, "auto")) {
+                    "day" -> "night"
+                    "night" -> "auto"
+                    else -> "day"
+                }
+                preferences.edit().putString(ApiClient.DISPLAY_MODE_KEY, next).apply()
+                displayModeInput.setText(next)
             }
         })
         val status = TextView(this).apply {

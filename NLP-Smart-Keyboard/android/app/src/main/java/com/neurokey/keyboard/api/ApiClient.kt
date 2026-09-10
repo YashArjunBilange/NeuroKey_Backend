@@ -16,6 +16,7 @@ data class PredictSentenceResponse(val predictions: List<SentencePrediction>)
 data class SentencePrediction(val sentence: String, val score: Double = 0.0)
 data class TextRequest(val text: String)
 data class EmojiResponse(val emojis: List<String>)
+data class GifResponse(val query: String, val url: String? = null, val message: String? = null)
 
 interface NlpApiService {
     @POST("/api/v1/predict/next-word")
@@ -26,6 +27,9 @@ interface NlpApiService {
 
     @POST("/api/v1/nlp/emoji")
     suspend fun getEmojis(@Body request: TextRequest): EmojiResponse
+
+    @POST("/api/v1/nlp/gif")
+    suspend fun getGif(@Body request: TextRequest): GifResponse
 }
 
 object ApiClient {
@@ -35,6 +39,7 @@ object ApiClient {
     const val THEME_KEY = "keyboard_theme"
     const val DISPLAY_MODE_KEY = "display_mode"
     const val KEYBOARD_SIZE_KEY = "keyboard_size"
+    const val AI_ENABLED_KEY = "ai_enabled"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)

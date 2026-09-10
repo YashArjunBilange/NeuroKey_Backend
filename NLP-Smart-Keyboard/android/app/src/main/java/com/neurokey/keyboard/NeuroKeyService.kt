@@ -2,6 +2,7 @@ package com.neurokey.keyboard
 
 import android.inputmethodservice.InputMethodService
 import android.content.Intent
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -39,6 +40,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private var sensitiveField = false
     private var shiftMode = ShiftMode.LOWERCASE
     private var symbols = false
+    private var voiceLanguage = "en-IN"
     private var requestJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var speechRecognizer: SpeechRecognizer? = null
@@ -67,6 +69,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         suggestion3.setOnClickListener { insertSuggestion(suggestion3.text.toString()) }
         bindButtons(keyboardView)
         setupEmojiPanel()
+        updateLanguageLabel()
         applyTheme()
         applyKeyboardSize()
         return keyboardView
@@ -149,6 +152,9 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             R.id.btn_emoji -> toggleEmojiPanel()
             R.id.btn_sentence -> showSentenceSuggestions()
             R.id.btn_voice -> startVoiceInput()
+            R.id.btn_gif -> showGifSuggestion()
+            R.id.btn_clipboard -> pasteClipboard()
+            R.id.btn_language -> cycleVoiceLanguage()
             else -> {
                 val text = button.text.toString()
                 if (text.isNotEmpty()) {
@@ -161,7 +167,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
                 }
             }
         }
-        if (button.id !in setOf(R.id.btn_shift, R.id.btn_mode, R.id.btn_emoji, R.id.btn_sentence, R.id.btn_voice, R.id.btn_cursor_left, R.id.btn_cursor_right)) fetchSuggestions()
+        if (button.id !in setOf(R.id.btn_shift, R.id.btn_mode, R.id.btn_emoji, R.id.btn_sentence, R.id.btn_voice, R.id.btn_gif, R.id.btn_clipboard, R.id.btn_language, R.id.btn_cursor_left, R.id.btn_cursor_right)) fetchSuggestions()
     }
 
     private fun updateLabels() {
@@ -197,6 +203,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         keyboardView.findViewById<View>(R.id.number_row).visibility = View.VISIBLE
         keyboardView.findViewById<View>(R.id.symbol_row).visibility = if (symbols) View.VISIBLE else View.GONE
         keyboardView.findViewById<View>(R.id.symbol_row_2).visibility = if (symbols) View.VISIBLE else View.GONE
+        keyboardView.findViewById<View>(R.id.symbol_row_3).visibility = if (symbols) View.VISIBLE else View.GONE
         keyboardView.findViewById<View>(R.id.letter_top_row).visibility = if (symbols) View.GONE else View.VISIBLE
         keyboardView.findViewById<View>(R.id.letter_home_row).visibility = if (symbols) View.GONE else View.VISIBLE
         keyboardView.findViewById<View>(R.id.letter_bottom_row).visibility = if (symbols) View.GONE else View.VISIBLE
@@ -273,7 +280,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     }
 
     private fun fetchSuggestions() {
-        if (sensitiveField) return
+        if (sensitiveField || !aiEnabled()) return
         requestJob?.cancel()
         requestJob = serviceScope.launch {
             delay(250)
@@ -289,6 +296,10 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     }
 
     private fun showSentenceSuggestions() {
+        if (!aiEnabled()) {
+            setSuggestions(listOf("AI off"))
+            return
+        }
         val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
         if (sensitiveField) return
         if (text.isBlank()) {
@@ -320,6 +331,44 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             } catch (_: Exception) { setSuggestions(listOf("😊", "👍", "🎉")) }
         }
     }
+
+    private fun showGifSuggestion() {
+        if (sensitiveField || !aiEnabled()) {
+            setSuggestions(listOf("AI off"))
+            return
+        }
+        val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
+        setSuggestions(listOf("GIF…"))
+        serviceScope.launch {
+            runCatching { ApiClient.apiService(this@NeuroKeyService).getGif(TextRequest(text)) }
+                .onSuccess { response -> setSuggestions(listOf("GIF: ${response.query}")) }
+                .onFailure { setSuggestions(listOf("GIF search unavailable")) }
+        }
+    }
+
+    private fun pasteClipboard() {
+        if (sensitiveField) return
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        val text = clipboard.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        if (text.isNotBlank()) currentInputConnection?.commitText(text, 1)
+        fetchSuggestions()
+    }
+
+    private fun cycleVoiceLanguage() {
+        voiceLanguage = when (voiceLanguage) {
+            "en-IN" -> "hi-IN"
+            "hi-IN" -> "en-IN"
+            else -> "en-IN"
+        }
+        updateLanguageLabel()
+    }
+
+    private fun updateLanguageLabel() {
+        keyboardView.findViewById<Button>(R.id.btn_language)?.text = if (voiceLanguage == "hi-IN") "HI" else "EN"
+    }
+
+    private fun aiEnabled(): Boolean = getSharedPreferences(ApiClient.PREFERENCES_NAME, MODE_PRIVATE)
+        .getBoolean(ApiClient.AI_ENABLED_KEY, true)
 
     private fun toggleEmojiPanel() {
         val panel = keyboardView.findViewById<View>(R.id.emoji_row)
@@ -412,7 +461,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             })
             startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, voiceLanguage)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             })
         }
