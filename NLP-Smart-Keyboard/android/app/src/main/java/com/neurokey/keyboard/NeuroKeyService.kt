@@ -191,8 +191,9 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     }
 
     private fun updateKeyboardMode() {
-        keyboardView.findViewById<View>(R.id.number_row).visibility = if (symbols) View.VISIBLE else View.GONE
+        keyboardView.findViewById<View>(R.id.number_row).visibility = View.VISIBLE
         keyboardView.findViewById<View>(R.id.symbol_row).visibility = if (symbols) View.VISIBLE else View.GONE
+        keyboardView.findViewById<View>(R.id.symbol_row_2).visibility = if (symbols) View.VISIBLE else View.GONE
         keyboardView.findViewById<View>(R.id.letter_top_row).visibility = if (symbols) View.GONE else View.VISIBLE
         keyboardView.findViewById<View>(R.id.letter_home_row).visibility = if (symbols) View.GONE else View.VISIBLE
         keyboardView.findViewById<View>(R.id.letter_bottom_row).visibility = if (symbols) View.GONE else View.VISIBLE
