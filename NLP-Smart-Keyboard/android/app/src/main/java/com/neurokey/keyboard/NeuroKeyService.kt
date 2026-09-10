@@ -246,6 +246,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             delay(250)
             val text = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString().orEmpty()
             if (text.isBlank()) { clearSuggestions(); return@launch }
+            setSuggestions(listOf("…"))
             try {
                 val response = ApiClient.apiService(this@NeuroKeyService).getNextWord(PredictWordRequest(text, 3))
                 val words = response.predictions.map { it.word }.filter { it.isNotBlank() }
@@ -256,13 +257,24 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
 
     private fun showSentenceSuggestions() {
         val text = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString().orEmpty()
-        if (text.isBlank() || sensitiveField) return
+        if (sensitiveField) return
+        if (text.isBlank()) {
+            setSuggestions(listOf("Type a message first"))
+            return
+        }
+        requestJob?.cancel()
+        setSuggestions(listOf("AI…"))
         serviceScope.launch {
             try {
                 val response = ApiClient.apiService(this@NeuroKeyService).getNextSentence(PredictSentenceRequest(text, 3))
-                setSuggestions(response.predictions.map { it.sentence }.filter { it.isNotBlank() })
+                val sentences = response.predictions.map { it.sentence }.filter { it.isNotBlank() }
+                if (sentences.isEmpty()) setSentenceFallback() else setSuggestions(sentences)
             } catch (_: Exception) { setSuggestions(listOf("Tell me more.", "That sounds good.", "I will get back to you.")) }
         }
+    }
+
+    private fun setSentenceFallback() {
+        setSuggestions(listOf("Tell me more.", "That sounds good.", "I will get back to you."))
     }
 
     private fun showEmojiSuggestions() {

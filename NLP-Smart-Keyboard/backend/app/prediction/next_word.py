@@ -1,6 +1,5 @@
 from app.nlp.ngrams import ngram_engine
 from app.nlp.tokenizer import tokenize_text
-import math
 
 def predict_next_words(text: str, top_k: int = 3):
     """Predicts next words based on N-Gram model"""
@@ -22,42 +21,40 @@ def predict_next_words(text: str, top_k: int = 3):
         
     tokens = [t.lower() for t in tokens]
     
+    top_k = max(1, min(top_k, 5))
     predictions = []
-    
-    # Try trigram first, then fallback to bigram, then unigram
-    vocab = ngram_engine.unigrams.keys()
-    
+    vocab = [word for word in ngram_engine.unigrams if word not in {".", ",", "?", "!"}]
+
     if len(tokens) >= 2:
         w1, w2 = tokens[-2], tokens[-1]
-        for v in vocab:
-            if v not in [".", ",", "?", "!"]:
-                prob = ngram_engine.get_trigram_prob(w1, w2, v)
-                predictions.append({"word": v, "probability": prob, "model": "trigram"})
-                
-    elif len(tokens) == 1:
+        trigram_candidates = [
+            (word3, count) for (word1, word2, word3), count in ngram_engine.trigrams.items()
+            if word1 == w1 and word2 == w2 and word3 in vocab
+        ]
+        for word, count in sorted(trigram_candidates, key=lambda item: (-item[1], item[0])):
+            predictions.append({"word": word, "probability": ngram_engine.get_trigram_prob(w1, w2, word), "model": "trigram", "count": count})
+
+    if len(predictions) < top_k and tokens:
         w1 = tokens[-1]
-        for v in vocab:
-             if v not in [".", ",", "?", "!"]:
-                prob = ngram_engine.get_bigram_prob(w1, v)
-                predictions.append({"word": v, "probability": prob, "model": "bigram"})
-                
-    else:
-        for v in vocab:
-             if v not in [".", ",", "?", "!"]:
-                prob = ngram_engine.get_unigram_prob(v)
-                predictions.append({"word": v, "probability": prob, "model": "unigram"})
-                
-    # Sort and take top K
-    predictions.sort(key=lambda x: x["probability"], reverse=True)
-    
-    # Deduplicate while preserving order
-    seen = set()
-    unique_preds = []
-    for p in predictions:
-        if p["word"] not in seen:
-            seen.add(p["word"])
-            unique_preds.append(p)
-            if len(unique_preds) == top_k:
+        bigram_candidates = [
+            (word2, count) for (word_left, word2), count in ngram_engine.bigrams.items()
+            if word_left == w1 and word2 in vocab and word2 not in {item["word"] for item in predictions}
+        ]
+        for word, count in sorted(bigram_candidates, key=lambda item: (-item[1], item[0])):
+            predictions.append({"word": word, "probability": ngram_engine.get_bigram_prob(w1, word), "model": "bigram", "count": count})
+
+    if len(predictions) < top_k:
+        used = {item["word"] for item in predictions}
+        for word in sorted(vocab, key=lambda item: (-ngram_engine.unigrams[item], item)):
+            if word in used:
+                continue
+            predictions.append({"word": word, "probability": ngram_engine.get_unigram_prob(word), "model": "unigram", "count": ngram_engine.unigrams[word]})
+            if len(predictions) >= top_k:
                 break
-                
-    return {"predictions": unique_preds}
+
+    return {
+        "predictions": [
+            {key: value for key, value in prediction.items() if key != "count"}
+            for prediction in predictions[:top_k]
+        ]
+    }

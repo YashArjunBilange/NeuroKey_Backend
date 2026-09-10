@@ -46,3 +46,15 @@ def test_next_word_api():
     data = response.json()
     assert "predictions" in data
     assert isinstance(data["predictions"], list)
+    assert len(data["predictions"]) == 3
+    assert {item["word"] for item in data["predictions"]} >= {"home", "to", "there"}
+
+def test_next_sentence_api():
+    response = client.post(
+        "/api/v1/predict/next-sentence",
+        json={"context": "Are you coming to college tomorrow?", "top_k": 3}
+    )
+    assert response.status_code == 200
+    predictions = response.json()["predictions"]
+    assert len(predictions) == 3
+    assert all(prediction["sentence"] for prediction in predictions)

@@ -37,8 +37,9 @@ object ApiClient {
     const val KEYBOARD_SIZE_KEY = "keyboard_size"
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     fun apiService(context: Context): NlpApiService {
@@ -47,7 +48,9 @@ object ApiClient {
             ?.trim()
             ?.trimEnd('/')
             .orEmpty()
-        val baseUrl = if (configuredUrl.isBlank()) DEFAULT_BASE_URL else configuredUrl
+        val baseUrl = (if (configuredUrl.isBlank()) DEFAULT_BASE_URL else configuredUrl)
+            .removeSuffix("/api/v1")
+            .trimEnd('/')
 
         return Retrofit.Builder()
             .baseUrl("$baseUrl/")
