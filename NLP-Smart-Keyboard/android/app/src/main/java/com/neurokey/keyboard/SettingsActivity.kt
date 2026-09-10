@@ -31,12 +31,25 @@ class SettingsActivity : Activity() {
             setText(preferences.getString(ApiClient.BACKEND_URL_KEY, ApiClient.DEFAULT_BASE_URL))
         }
         root.addView(urlInput)
+        val themeInput = EditText(this).apply {
+            hint = "Theme: ocean, sunset, or forest"
+            setSingleLine(true)
+            setText(preferences.getString(ApiClient.THEME_KEY, "ocean"))
+        }
+        root.addView(themeInput)
         root.addView(Button(this).apply {
             text = "Save backend URL"
             setOnClickListener {
                 preferences.edit()
                     .putString(ApiClient.BACKEND_URL_KEY, urlInput.text.toString().trim().trimEnd('/'))
                     .apply()
+            }
+        })
+        root.addView(Button(this).apply {
+            text = "Save theme"
+            setOnClickListener {
+                val theme = themeInput.text.toString().trim().lowercase()
+                preferences.edit().putString(ApiClient.THEME_KEY, theme.ifBlank { "ocean" }).apply()
             }
         })
         val status = TextView(this).apply {

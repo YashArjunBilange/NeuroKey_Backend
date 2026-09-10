@@ -32,6 +32,7 @@ object ApiClient {
     const val DEFAULT_BASE_URL = "http://10.0.2.2:8000"
     const val PREFERENCES_NAME = "neurokey_preferences"
     const val BACKEND_URL_KEY = "backend_url"
+    const val THEME_KEY = "keyboard_theme"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
