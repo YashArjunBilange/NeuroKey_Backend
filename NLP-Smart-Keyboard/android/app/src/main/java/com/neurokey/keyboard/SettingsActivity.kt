@@ -1,6 +1,8 @@
 package com.neurokey.keyboard
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.graphics.Color
 import android.view.Gravity
@@ -37,6 +39,14 @@ class SettingsActivity : Activity() {
             setText(preferences.getString(ApiClient.THEME_KEY, "ocean"))
         }
         root.addView(themeInput)
+        root.addView(Button(this).apply {
+            text = "Allow voice input"
+            setOnClickListener {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+                }
+            }
+        })
         root.addView(Button(this).apply {
             text = "Save backend URL"
             setOnClickListener {

@@ -1,6 +1,8 @@
 package com.neurokey.keyboard
 
 import android.inputmethodservice.InputMethodService
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
@@ -8,6 +10,9 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,6 +39,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private var symbols = false
     private var requestJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var speechRecognizer: SpeechRecognizer? = null
     private val alternates = mapOf(
         "A" to "áàäâãå", "C" to "ç", "E" to "éèëê", "I" to "íìïî",
         "N" to "ñ", "O" to "óòöôõ", "S" to "ß", "U" to "úùüû",
@@ -96,13 +102,14 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             R.id.btn_cursor_right -> moveCursor(connection, 1)
             R.id.btn_emoji -> toggleEmojiPanel()
             R.id.btn_sentence -> showSentenceSuggestions()
+            R.id.btn_voice -> startVoiceInput()
             else -> {
                 val text = button.text.toString()
                 if (text.isNotEmpty()) connection.commitText(if (!symbols && shifted) text.uppercase() else text, 1)
                 if (shifted) { shifted = false; updateLabels() }
             }
         }
-        if (button.id !in setOf(R.id.btn_shift, R.id.btn_mode, R.id.btn_emoji, R.id.btn_sentence, R.id.btn_cursor_left, R.id.btn_cursor_right)) fetchSuggestions()
+        if (button.id !in setOf(R.id.btn_shift, R.id.btn_mode, R.id.btn_emoji, R.id.btn_sentence, R.id.btn_voice, R.id.btn_cursor_left, R.id.btn_cursor_right)) fetchSuggestions()
     }
 
     private fun updateLabels() {
@@ -215,6 +222,37 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         if (panel.visibility == View.VISIBLE) showEmojiSuggestions()
     }
 
+    private fun startVoiceInput() {
+        if (sensitiveField || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            startActivity(Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+        speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onResults(results: android.os.Bundle?) {
+                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                    if (text.isNotBlank()) currentInputConnection?.commitText("$text ", 1)
+                    fetchSuggestions()
+                }
+                override fun onError(error: Int) = Unit
+                override fun onReadyForSpeech(params: android.os.Bundle?) = Unit
+                override fun onBeginningOfSpeech() = Unit
+                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() = Unit
+                override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
+                override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
+            })
+            startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            })
+        }
+    }
+
     private fun showOfflineSuggestions(text: String) {
         val lower = text.lowercase()
         val values = when {
@@ -237,6 +275,8 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
 
     override fun onDestroy() {
         requestJob?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         serviceScope.cancel()
         super.onDestroy()
     }
