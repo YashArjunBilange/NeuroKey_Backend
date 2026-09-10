@@ -35,7 +35,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     private lateinit var shiftButton: Button
     private lateinit var modeButton: Button
     private var sensitiveField = false
-    private var shifted = false
+    private var shiftMode = ShiftMode.LOWERCASE
     private var symbols = false
     private var requestJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -45,6 +45,12 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
         "N" to "ñ", "O" to "óòöôõ", "S" to "ß", "U" to "úùüû",
         "Y" to "ÿ", "Z" to "ž"
     )
+
+    private enum class ShiftMode {
+        LOWERCASE,
+        CAPITALIZE,
+        CAPS_LOCK
+    }
 
     override fun onCreateInputView(): View {
         keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null) as LinearLayout
@@ -74,7 +80,7 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         sensitiveField = isSensitiveInputType(info?.inputType ?: 0)
-        shifted = shouldAutoCapitalize()
+        shiftMode = if (shouldAutoCapitalize()) ShiftMode.CAPITALIZE else ShiftMode.LOWERCASE
         symbols = false
         updateKeyboardMode()
         if (sensitiveField) clearSuggestions("Secured field") else fetchSuggestions()
@@ -97,7 +103,14 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             R.id.btn_delete -> connection.deleteSurroundingText(1, 0)
             R.id.btn_enter -> connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
             R.id.btn_space -> connection.commitText(" ", 1)
-            R.id.btn_shift -> { shifted = !shifted; updateLabels() }
+            R.id.btn_shift -> {
+                shiftMode = when (shiftMode) {
+                    ShiftMode.LOWERCASE -> ShiftMode.CAPITALIZE
+                    ShiftMode.CAPITALIZE -> ShiftMode.CAPS_LOCK
+                    ShiftMode.CAPS_LOCK -> ShiftMode.LOWERCASE
+                }
+                updateLabels()
+            }
             R.id.btn_mode -> { symbols = !symbols; updateKeyboardMode() }
             R.id.btn_cursor_left -> moveCursor(connection, -1)
             R.id.btn_cursor_right -> moveCursor(connection, 1)
@@ -106,8 +119,14 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
             R.id.btn_voice -> startVoiceInput()
             else -> {
                 val text = button.text.toString()
-                if (text.isNotEmpty()) connection.commitText(if (!symbols && shifted) text.uppercase() else text, 1)
-                if (shifted) { shifted = false; updateLabels() }
+                if (text.isNotEmpty()) {
+                    val output = if (!symbols && shiftMode != ShiftMode.LOWERCASE) text.uppercase() else text
+                    connection.commitText(output, 1)
+                }
+                if (shiftMode == ShiftMode.CAPITALIZE) {
+                    shiftMode = ShiftMode.LOWERCASE
+                    updateLabels()
+                }
             }
         }
         if (button.id !in setOf(R.id.btn_shift, R.id.btn_mode, R.id.btn_emoji, R.id.btn_sentence, R.id.btn_voice, R.id.btn_cursor_left, R.id.btn_cursor_right)) fetchSuggestions()
@@ -115,11 +134,30 @@ class NeuroKeyService : InputMethodService(), View.OnClickListener {
 
     private fun updateLabels() {
         modeButton.text = if (symbols) "ABC" else "123"
-        shiftButton.text = if (shifted) "SHIFT" else "shift"
-        val row = keyboardView.findViewWithTag<LinearLayout>("letter_row") ?: return
-        for (index in 0 until row.childCount) {
-            val button = row.getChildAt(index) as? Button ?: continue
-            button.text = if (!symbols && shifted) button.text.toString().uppercase() else button.text.toString().lowercase()
+        when (shiftMode) {
+            ShiftMode.LOWERCASE -> {
+                shiftButton.text = "⇧"
+                shiftButton.contentDescription = "Shift: lowercase. Tap for one capital letter"
+            }
+            ShiftMode.CAPITALIZE -> {
+                shiftButton.text = "↑"
+                shiftButton.contentDescription = "Shift: capitalize next letter. Tap for Caps Lock"
+            }
+            ShiftMode.CAPS_LOCK -> {
+                shiftButton.text = "⇧•"
+                shiftButton.contentDescription = "Shift: Caps Lock. Tap to return to lowercase"
+            }
+        }
+        val rows = listOf(
+            keyboardView.findViewById<LinearLayout>(R.id.letter_top_row),
+            keyboardView.findViewById<LinearLayout>(R.id.letter_home_row),
+            keyboardView.findViewById<LinearLayout>(R.id.letter_row)
+        )
+        rows.filterNotNull().forEach { row ->
+            for (index in 0 until row.childCount) {
+                val button = row.getChildAt(index) as? Button ?: continue
+                button.text = if (!symbols && shiftMode != ShiftMode.LOWERCASE) button.text.toString().uppercase() else button.text.toString().lowercase()
+            }
         }
     }
 
